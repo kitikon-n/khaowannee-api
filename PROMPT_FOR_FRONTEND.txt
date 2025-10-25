@@ -1,0 +1,307 @@
+# Prompt for Frontend Developer (Claude Code)
+
+## 📋 Task Overview
+สร้าง Authentication System ด้วย JWT Token-based Authentication สำหรับ React (Vite) ที่เชื่อมต่อกับ Backend API
+
+---
+
+## 🎯 Requirements
+
+### Backend API Information
+- **Base URL**: `http://localhost:8000`
+- **Authentication**: JWT Bearer Token
+- **Token Expiration**: Access Token = 30 minutes, Refresh Token = 7 days
+
+### API Endpoints
+
+#### 1. Register (สมัครสมาชิก)
+```
+POST /user/register
+Content-Type: application/json
+
+Body:
+{
+  "user_name": "string",    // 3-20 characters
+  "email": "string",         // valid email
+  "password": "string"       // minimum 6 characters
+}
+
+Response (201):
+{
+  "user_id": 1,
+  "user_name": "john_doe",
+  "email": "john@example.com",
+  "active": true,
+  "created_date": "2025-10-25T10:00:00"
+}
+```
+
+#### 2. Login (เข้าสู่ระบบ)
+```
+POST /user/login
+Content-Type: application/json
+
+Body:
+{
+  "username": "string",
+  "password": "string"
+}
+
+Response (200):
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer"
+}
+```
+
+#### 3. Get Current User (ดึงข้อมูล User ปัจจุบัน)
+```
+GET /user/me
+Authorization: Bearer {access_token}
+
+Response (200):
+{
+  "user_id": 1,
+  "user_name": "john_doe",
+  "email": "john@example.com",
+  "active": true,
+  "created_date": "2025-10-25T10:00:00"
+}
+```
+
+#### 4. Protected Route Example
+```
+GET /user/protected
+Authorization: Bearer {access_token}
+
+Response (200):
+{
+  "message": "Hello john_doe!",
+  "user_id": 1,
+  "email": "john@example.com",
+  "status": "This is a protected route!"
+}
+```
+
+---
+
+## 🚀 Implementation Tasks
+
+### Task 1: Setup Dependencies
+```bash
+npm install axios react-router-dom
+```
+
+### Task 2: Create API Service
+สร้าง `src/services/api.js` ที่มี:
+- axios instance with base URL
+- Request interceptor เพื่อเพิ่ม Authorization header
+- Response interceptor เพื่อจัดการ 401 errors
+- Functions: `register()`, `login()`, `getCurrentUser()`, `logout()`
+- Token storage ใน localStorage
+
+**Key Features:**
+- เก็บ `access_token` และ `refresh_token` ใน localStorage
+- Auto-attach Authorization header ทุก request
+- Auto-redirect to login เมื่อ token หมดอายุ (401)
+
+### Task 3: Create Auth Context
+สร้าง `src/context/AuthContext.jsx` ที่มี:
+- State: `user`, `loading`
+- Functions: `login()`, `register()`, `logout()`, `checkAuth()`
+- Custom hook: `useAuth()`
+- Auto-check authentication on app start
+
+### Task 4: Create Components
+1. **Login Component** (`src/components/Login.jsx`)
+   - Form fields: username, password
+   - Submit → call `/user/login` → save tokens → redirect to dashboard
+   - Link to Register page
+
+2. **Register Component** (`src/components/Register.jsx`)
+   - Form fields: user_name, email, password
+   - Validation: username (3-20), password (min 6)
+   - Submit → call `/user/register` → redirect to login
+
+3. **ProtectedRoute Component** (`src/components/ProtectedRoute.jsx`)
+   - Check authentication before rendering
+   - Redirect to login if not authenticated
+
+### Task 5: Setup Routes
+ใน `App.jsx`:
+```jsx
+<AuthProvider>
+  <BrowserRouter>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/dashboard" element={
+        <ProtectedRoute>
+          <Dashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/" element={<Navigate to="/dashboard" />} />
+    </Routes>
+  </BrowserRouter>
+</AuthProvider>
+```
+
+---
+
+## 🔐 Authentication Flow
+
+```
+1. User → Register (/register)
+   ↓
+2. Success → Redirect to Login (/login)
+   ↓
+3. Login with username/password
+   ↓
+4. Backend returns { access_token, refresh_token }
+   ↓
+5. Store tokens in localStorage
+   ↓
+6. Redirect to Dashboard (/dashboard)
+   ↓
+7. Dashboard fetches user data with token
+   ↓
+8. If token expires (401) → Redirect to Login
+```
+
+---
+
+## 🛡️ Security Requirements
+
+1. **Token Storage**: Use `localStorage` for tokens
+2. **Protected Routes**: Wrap with `<ProtectedRoute>` component
+3. **Auto Logout**: Remove tokens and redirect on 401 error
+4. **Header Format**: `Authorization: Bearer {token}`
+
+---
+
+## ❌ Error Handling
+
+Handle these status codes:
+- `400` - Bad Request (show error message)
+- `401` - Unauthorized (redirect to login, clear tokens)
+- `403` - Forbidden (show "Account inactive")
+- `422` - Validation Error (show field errors)
+- `500` - Server Error (show generic error)
+
+---
+
+## 📝 Example Code Snippets
+
+### API Service (axios)
+```javascript
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: 'http://localhost:8000',
+});
+
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem('access_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('access_token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export const authAPI = {
+  register: (data) => api.post('/user/register', data),
+  login: (data) => api.post('/user/login', data),
+  getCurrentUser: () => api.get('/user/me'),
+  logout: () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+  }
+};
+```
+
+### useAuth Hook
+```javascript
+import { createContext, useContext, useState } from 'react';
+
+const AuthContext = createContext();
+
+export const useAuth = () => useContext(AuthContext);
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+
+  const login = async (username, password) => {
+    const { data } = await authAPI.login({ username, password });
+    localStorage.setItem('access_token', data.access_token);
+    const userData = await authAPI.getCurrentUser();
+    setUser(userData.data);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+```
+
+---
+
+## ✅ Testing Checklist
+
+- [ ] Register new user successfully
+- [ ] Login with registered credentials
+- [ ] Token stored in localStorage
+- [ ] Dashboard shows user information
+- [ ] Protected route redirects when not logged in
+- [ ] Logout clears tokens and redirects
+- [ ] 401 error triggers auto-logout
+- [ ] Error messages display correctly
+
+---
+
+## 🎨 UI/UX Requirements
+
+1. Show loading states during API calls
+2. Display error messages clearly
+3. Form validation before submit
+4. Disable submit buttons while loading
+5. Success feedback after registration
+
+---
+
+## 🚨 Important Notes
+
+1. **CORS is enabled** on backend for all origins
+2. **Token expires** in 30 minutes (auto-logout on 401)
+3. **Password requirements**: Minimum 6 characters
+4. **Username requirements**: 3-20 characters
+5. **Response does NOT include password** (security)
+
+---
+
+## 🎯 Expected Deliverables
+
+1. ✅ Working Login page
+2. ✅ Working Register page
+3. ✅ Protected Dashboard page
+4. ✅ Auth Context with token management
+5. ✅ API service with interceptors
+6. ✅ Error handling for all scenarios
+7. ✅ Automatic redirect on auth failure
+
+---
+
+**Start by creating the API service and Auth Context, then build components on top of it.**
