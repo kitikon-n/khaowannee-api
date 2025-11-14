@@ -59,3 +59,6 @@ htmlcov/
 
 # Jupyter
 .ipynb_checkpoints/
+
+#venv
+khaowannee-api/

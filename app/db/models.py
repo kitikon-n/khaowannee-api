@@ -172,7 +172,7 @@ class Portfolio(Base):
 
     # Relationships
     holdings = relationship("PortfolioHolding", back_populates="portfolio", cascade="all, delete-orphan")
-    transactions = relationship("Transaction", back_populates="portfolio")
+    transactions = relationship("Transaction", back_populates="portfolio", cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -404,11 +404,100 @@ class PriceAlert(Base):
     cryptocurrency = relationship("Cryptocurrency", back_populates="price_alerts")
 
 
+class PriceData(Base):
+    __tablename__ = "price_data"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    cryptocurrency_id = Column(Integer, ForeignKey('cryptocurrencies.id'))
+    exchange_id = Column(Integer, ForeignKey('exchanges.id'))
+    price_timestamp = Column(DateTime, nullable=False)
+    close_price = Column(Numeric(20, 8), nullable=False)
+    timeframe = Column(String(10), default='5M')
+    created_by = Column(String(100))
+    created_date = Column(DateTime(timezone=True))
+    created_program = Column(String(100))
+    updated_by = Column(String(100))
+    updated_date = Column(DateTime(timezone=True))
+    updated_program = Column(String(100))
+
+    # Relationships
+    cryptocurrency = relationship("Cryptocurrency")
+    exchange = relationship("Exchange")
+
+
+class InvestmentRecommendation(Base):
+    __tablename__ = "investment_recommendations"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    cryptocurrency_id = Column(Integer, ForeignKey('cryptocurrencies.id'))
+    analysis_date = Column(DateTime, nullable=False)
+
+    # Short-term fields
+    short_term_timeframe = Column(String(10), default='4h')
+    short_term_signal = Column(String(20), CheckConstraint("short_term_signal IN ('STRONG_BUY', 'BUY', 'HOLD', 'SELL', 'STRONG_SELL')"))
+    short_term_score = Column(Numeric(5, 2))
+    short_term_recommendation = Column(Text)
+    short_term_risk_level = Column(String(20), CheckConstraint("short_term_risk_level IN ('VERY_LOW', 'LOW', 'MEDIUM', 'HIGH', 'VERY_HIGH')"))
+    short_market_momentum = Column(String(20))
+    short_trend_direction = Column(String(20))
+    short_market_volatility = Column(String(20))
+    short_liquidity = Column(String(20))
+    short_term_entry_price = Column(Numeric(20, 8))
+    short_term_target_price = Column(Numeric(20, 8))
+    short_term_stop_loss = Column(Numeric(20, 8))
+
+    # Medium-term fields
+    medium_term_timeframe = Column(String(10), default='1w')
+    medium_term_signal = Column(String(20), CheckConstraint("medium_term_signal IN ('STRONG_BUY', 'BUY', 'HOLD', 'SELL', 'STRONG_SELL')"))
+    medium_term_score = Column(Numeric(5, 2))
+    medium_term_recommendation = Column(Text)
+    medium_term_risk_level = Column(String(20), CheckConstraint("medium_term_risk_level IN ('VERY_LOW', 'LOW', 'MEDIUM', 'HIGH', 'VERY_HIGH')"))
+    medium_market_momentum = Column(String(20))
+    medium_trend_direction = Column(String(20))
+    medium_market_volatility = Column(String(20))
+    medium_liquidity = Column(String(20))
+    medium_term_entry_price = Column(Numeric(20, 8))
+    medium_term_target_price = Column(Numeric(20, 8))
+    medium_term_stop_loss = Column(Numeric(20, 8))
+
+    # Long-term fields
+    long_term_timeframe = Column(String(10), default='1M')
+    long_term_signal = Column(String(20), CheckConstraint("long_term_signal IN ('STRONG_BUY', 'BUY', 'HOLD', 'SELL', 'STRONG_SELL')"))
+    long_term_score = Column(Numeric(5, 2))
+    long_term_recommendation = Column(Text)
+    long_term_risk_level = Column(String(20), CheckConstraint("long_term_risk_level IN ('VERY_LOW', 'LOW', 'MEDIUM', 'HIGH', 'VERY_HIGH')"))
+    long_market_momentum = Column(String(20))
+    long_trend_direction = Column(String(20))
+    long_market_volatility = Column(String(20))
+    long_liquidity = Column(String(20))
+    long_term_entry_price = Column(Numeric(20, 8))
+    long_term_target_price = Column(Numeric(20, 8))
+    long_term_stop_loss = Column(Numeric(20, 8))
+
+    # Overall fields
+    overall_sentiment = Column(String(20), CheckConstraint("overall_sentiment IN ('VERY_BULLISH', 'BULLISH', 'NEUTRAL', 'BEARISH', 'VERY_BEARISH')"))
+    current_price = Column(Numeric(20, 8))
+    analyst_notes = Column(Text)
+    confidence_level = Column(String(20), CheckConstraint("confidence_level IN ('VERY_LOW', 'LOW', 'MEDIUM', 'HIGH', 'VERY_HIGH')"))
+    data_sources = Column(Text)
+
+    # Audit fields
+    created_by = Column(String(100))
+    created_date = Column(DateTime(timezone=True))
+    created_program = Column(String(100))
+    updated_by = Column(String(100))
+    updated_date = Column(DateTime(timezone=True))
+    updated_program = Column(String(100))
+
+    # Relationships
+    cryptocurrency = relationship("Cryptocurrency")
+
+
 class Transaction(Base):
     __tablename__ = "transactions"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    portfolio_id = Column(Integer, ForeignKey('portfolios.id'))
+    portfolio_id = Column(Integer, ForeignKey('portfolios.id', ondelete='CASCADE'))
     cryptocurrency_id = Column(Integer, ForeignKey('cryptocurrencies.id'))
     transaction_type = Column(String(10))
     quantity = Column(Numeric(30, 8), nullable=False)

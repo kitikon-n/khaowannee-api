@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30  # Token หมดอายุใน 30 นาที
     refresh_token_expire_days: int = 7     # Refresh token หมดอายุใน 7 วัน
 
+    # API Keys
+    alpha_vantage_api_key: str = "demo"  # Default: demo key (limited)
+
     class Config:
         env_file = str(ENV_FILE)
         env_file_encoding = 'utf-8'
