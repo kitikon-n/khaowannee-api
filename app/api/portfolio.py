@@ -28,39 +28,74 @@ async def get_all_portfolios(
     - ต้องใช้ Token ใน Header: Authorization: Bearer <your_token>
     - จะคืนค่าเฉพาะ portfolios ของ user ที่ login เท่านั้น
     - รวมข้อมูล asset_name จาก db_list_value_lang
+    - คำนวณ total_invested, current_value, profit_loss จาก transactions และ price_data
     """
-    # Query with LEFT JOIN to get asset_name
-    results = db.query(
-        models.Portfolio,
-        models.DBListValueLang.value_text.label('asset_name')
-    ).outerjoin(
-        models.DBListValueLang,
-        (models.DBListValueLang.value == models.Portfolio.asset) &
-        (models.DBListValueLang.language_code == 'TH')
-    ).filter(
-        models.Portfolio.user_id == current_user.user_id
-    ).all()
+    # Query portfolios with calculated values from transactions
+    query = text("""
+        SELECT 
+            p.id
+            , p.user_id 
+            , p."name" 
+            , p.description 
+            , p.profit_loss_percentage 
+            , p.asset 
+            , COALESCE(lvl.value_text, p.asset) as asset_name
+            , sum(COALESCE (t.total_amount, 0)) total_invested
+            , sum(COALESCE (pd.close_price, 0) * COALESCE (t.quantity, 0)) current_value
+            , (sum(COALESCE (pd.close_price, 0) * COALESCE (t.quantity, 0)) - sum(COALESCE (t.total_amount, 0))) profit_loss
+            , p.created_by
+            , p.created_date
+            , p.created_program
+            , p.updated_by
+            , p.updated_date
+            , p.updated_program
+        FROM portfolios p
+            LEFT JOIN transactions t 
+                ON p.id = t.portfolio_id 
+            LEFT JOIN price_data pd 
+                ON pd.cryptocurrency_id = t.cryptocurrency_id
+            LEFT JOIN db_list_value_lang lvl
+                ON lvl.value = p.asset
+                AND lvl.language_code = 'TH'
+        WHERE user_id = 4
+        GROUP BY p.id
+            , p.user_id 
+            , p."name"  
+            , p.description 
+            , p.profit_loss_percentage 
+            , p.asset 
+            , lvl.value_text
+            , p.created_by
+            , p.created_date
+            , p.created_program
+            , p.updated_by
+            , p.updated_date
+            , p.updated_program
+        ORDER BY p.id desc
+    """)
+
+    results = db.execute(query, {"user_id": current_user.user_id})
 
     # แปลงผลลัพธ์เป็น list of dict
     portfolios = []
-    for portfolio, asset_name in results:
+    for row in results:
         portfolio_dict = {
-            "id": portfolio.id,
-            "user_id": portfolio.user_id,
-            "name": portfolio.name,
-            "description": portfolio.description,
-            "total_invested": portfolio.total_invested,
-            "current_value": portfolio.current_value,
-            "profit_loss": portfolio.profit_loss,
-            "profit_loss_percentage": portfolio.profit_loss_percentage,
-            "asset": portfolio.asset,
-            "asset_name": asset_name,
-            "created_by": portfolio.created_by,
-            "created_date": portfolio.created_date,
-            "created_program": portfolio.created_program,
-            "updated_by": portfolio.updated_by,
-            "updated_date": portfolio.updated_date,
-            "updated_program": portfolio.updated_program
+            "id": row.id,
+            "user_id": row.user_id,
+            "name": row.name,
+            "description": row.description,
+            "total_invested": float(row.total_invested) if row.total_invested else 0,
+            "current_value": float(row.current_value) if row.current_value else 0,
+            "profit_loss": float(row.profit_loss) if row.profit_loss else 0,
+            "profit_loss_percentage": float(row.profit_loss_percentage) if row.profit_loss_percentage else 0,
+            "asset": row.asset,
+            "asset_name": row.asset_name,
+            "created_by": row.created_by,
+            "created_date": row.created_date,
+            "created_program": row.created_program,
+            "updated_by": row.updated_by,
+            "updated_date": row.updated_date,
+            "updated_program": row.updated_program
         }
         portfolios.append(portfolio_dict)
 
